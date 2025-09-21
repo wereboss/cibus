@@ -1,0 +1,5 @@
+openpyxl
+langgraph
+google-generativeai
+pandas
+sqlalchemy

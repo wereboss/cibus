@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyc
+*.pyd
+*.pdb
+*.egg
+*.egg-info/
+dist/
+build/
+*.manifest
+*.spec
+
+# Virtual environments
+env/
+venv/
+ENV/
+.venv/
+.env/
+.ipynb_checkpoints/
+
+# SQLite database files
+*.sqlite
+*.sqlite3
+*.db
+
+# Gen-AI utilities (common cache and output files)
+*.pt
+*.ckpt
+*.h5
+*.onnx
+*.pb
+*.tflite
+*.mlmodel
+*.joblib
+*.pkl
+*.log
+*.tensorboard/
+runs/
+output/
+results/
+cache/
+__results__/
+__output__/
+__cache__/
+
+# Jupyter Notebook
+*.ipynb
+
+# VSCode
+.vscode/
+
+# MacOS
+.DS_Store
+
+# Others
+*.tmp
+*.bak
+*.swp
+*.swo
