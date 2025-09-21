@@ -8,6 +8,7 @@ data profile. It is a key component of the Cibus MVP's second phase.
 import random
 import string
 from typing import Dict, Any, List
+from datetime import datetime, timedelta
 
 def generate_synthetic_data(profile: Dict[str, Any], volume: int) -> List[Dict[str, str]]:
     """
@@ -80,11 +81,28 @@ def generate_synthetic_data(profile: Dict[str, Any], volume: int) -> List[Dict[s
                         new_record[col] = str(generated_value)
 
             elif pattern == 'DATE':
-                # Generate a random date (simplified for this example)
-                year = random.randint(2000, 2025)
-                month = random.randint(1, 12)
-                day = random.randint(1, 28)
-                new_record[col] = f"{month:02d}{day:02d}{year}"
+                guidelines = stats.get('generation_guidelines', {})
+                date_format = guidelines.get('date_format', "%Y%m%d")
+                min_date_str = guidelines.get('min_date', '20000101')
+                max_date_str = guidelines.get('max_date', '20251231')
+
+                try:
+                    min_date = datetime.strptime(min_date_str, date_format.replace('%Y', '%Y').replace('%m', '%m').replace('%d', '%d'))
+                    max_date = datetime.strptime(max_date_str, date_format.replace('%Y', '%Y').replace('%m', '%m').replace('%d', '%d'))
+                    
+                    # Calculate the difference in days between the min and max date
+                    days_diff = (max_date - min_date).days
+                    
+                    # Generate a random number of days to add to the min date
+                    random_days = random.randint(0, days_diff)
+                    
+                    # Generate the new random date
+                    random_date = min_date + timedelta(days=random_days)
+                    
+                    new_record[col] = random_date.strftime(date_format)
+                except (ValueError, TypeError) as e:
+                    print(f"Warning: Could not generate date for column '{col}'. Error: {e}. Falling back to default.")
+                    new_record[col] = "00000000" # Fallback value
                 
             else: # Covers 'UNCLASSIFIED' and 'RANDOM_STRING'
                 # Generate a random string of a fixed or variable length
@@ -101,7 +119,7 @@ if __name__ == '__main__':
     # --- Dummy data and isolated testing with rich NUMBER profile---
     print("--- Testing `data_generator.py` in isolation ---")
 
-    # A dummy profile with a new 'generation_guidelines' for NUMBER columns
+    # A dummy profile with a new 'generation_guidelines' for NUMBER and DATE columns
     dummy_profile = {
         'id': {'total_count': 5, 'unique_count': 5, 'cardinality': 1.0, 'min_length': 8, 'max_length': 8, 'column_name': 'id', 'pattern': 'SEQUENCE', 'reasoning': 'Sequential identifier.'},
         'product_code': {'total_count': 5, 'unique_count': 3, 'cardinality': 0.6, 'min_length': 10, 'max_length': 10, 'column_name': 'product_code', 'pattern': 'ENUM', 'value_counts': {'PROD-A0001': 3, 'PROD-B0002': 1, 'PROD-C0003': 1}},
@@ -118,7 +136,15 @@ if __name__ == '__main__':
         },
         'currency': {'total_count': 5, 'unique_count': 2, 'cardinality': 0.4, 'min_length': 3, 'max_length': 3, 'column_name': 'currency', 'pattern': 'ENUM', 'value_counts': {'USD': 3, 'EUR': 2}},
         'status': {'total_count': 5, 'unique_count': 3, 'cardinality': 0.6, 'min_length': 8, 'max_length': 8, 'column_name': 'status', 'pattern': 'ENUM', 'value_counts': {'STATUS-A': 2, 'STATUS-B': 2, 'STATUS-C': 1}},
-        'order_date': {'total_count': 5, 'unique_count': 1, 'cardinality': 0.2, 'min_length': 8, 'max_length': 8, 'column_name': 'order_date', 'pattern': 'DATE'},
+        'order_date': {
+            'total_count': 5, 'unique_count': 1, 'cardinality': 0.2, 'min_length': 8, 'max_length': 8,
+            'column_name': 'order_date', 'pattern': 'DATE',
+            'generation_guidelines': {
+                'date_format': "%m%d%Y",
+                'min_date': "01012023",
+                'max_date': "12312023"
+            }
+        },
         'customer_id': {'total_count': 5, 'unique_count': 5, 'cardinality': 1.0, 'min_length': 12, 'max_length': 12, 'column_name': 'customer_id', 'pattern': 'SEQUENCE'},
         'zip_code': {
             'total_count': 5, 'unique_count': 3, 'cardinality': 0.6, 'min_length': 5, 'max_length': 5,

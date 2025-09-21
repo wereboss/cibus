@@ -58,6 +58,17 @@ def infer_data_pattern(column_name: str, column_profile: Dict[str, Any]) -> Dict
                     "decimal_places": 2 if column_name.lower() == "price" else 0
                 }
             }
+        elif column_name.lower() in ["order_date"]:
+            mock_response = {
+                "column_name": column_name,
+                "pattern": "DATE",
+                "reasoning": "The column contains a single, fixed-length date.",
+                "generation_guidelines": {
+                    "date_format": "MMDDYYYY",
+                    "min_date": "01012023",
+                    "max_date": "12312023"
+                }
+            }
         else:
             mock_response = {
                 "column_name": column_name,
@@ -70,7 +81,7 @@ def infer_data_pattern(column_name: str, column_profile: Dict[str, Any]) -> Dict
         return mock_response
 
     # --- LLM Integration ---
-    # The system prompt is updated to request more detail for 'NUMBER' patterns.
+    # The system prompt is updated to request more detail for 'DATE' patterns.
     system_prompt = """
     You are an expert data analyst. Your task is to analyze a statistical profile of a data column and infer its underlying data pattern. Your response MUST be a single JSON object with three keys: "column_name", "pattern", and "reasoning".
     
@@ -82,6 +93,11 @@ def infer_data_pattern(column_name: str, column_profile: Dict[str, Any]) -> Dict
     - "min_value": the minimum value observed.
     - "max_value": the maximum value observed.
     - "decimal_places": required for "DECIMAL" type, the number of digits after the decimal point.
+
+    If the pattern is "DATE", you MUST also include a JSON object with the key "generation_guidelines". This object must contain:
+    - "date_format": a Python strftime format string (e.g., "%Y-%m-%d").
+    - "min_date": the earliest date observed, in the same format.
+    - "max_date": the latest date observed, in the same format.
     
     Example output for a NUMBER column:
     {
@@ -93,6 +109,18 @@ def infer_data_pattern(column_name: str, column_profile: Dict[str, Any]) -> Dict
         "min_value": 1.00,
         "max_value": 9999.99,
         "decimal_places": 2
+      }
+    }
+    
+    Example output for a DATE column:
+    {
+      "column_name": "order_date",
+      "pattern": "DATE",
+      "reasoning": "The column contains a limited set of fixed-length numeric values that appear to be dates.",
+      "generation_guidelines": {
+        "date_format": "%m%d%Y",
+        "min_date": "01012023",
+        "max_date": "03312023"
       }
     }
     """
@@ -169,6 +197,16 @@ if __name__ == '__main__':
         'max_length': 7
     }
 
+    # A dummy profile for a DATE column
+    date_profile = {
+        'total_count': 5,
+        'unique_count': 5,
+        'cardinality': 1.0,
+        'value_counts': {'22022024': 1, '21022024': 1, '13122023': 1, '18112023': 1, '02092023': 1},
+        'min_length': 8,
+        'max_length': 8
+    }
+
     # Test the function with the ENUM profile
     inferred_pattern_enum = infer_data_pattern(column_name="product_type", column_profile=product_type_profile)
     print("\nInferred Pattern for 'product_type':")
@@ -183,3 +221,8 @@ if __name__ == '__main__':
     inferred_pattern_num = infer_data_pattern(column_name="price", column_profile=price_profile)
     print("\nInferred Pattern for 'price':")
     print(inferred_pattern_num)
+    
+    # Test the function with the DATE profile
+    inferred_pattern_date = infer_data_pattern(column_name="order_date", column_profile=date_profile)
+    print("\nInferred Pattern for 'order_date':")
+    print(inferred_pattern_date)
