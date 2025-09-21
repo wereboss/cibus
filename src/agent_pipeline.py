@@ -14,6 +14,7 @@ import openpyxl
 from layout_parser import parse_xls_layout
 from data_parser import parse_fixed_length_data
 from profiler_utilities import profile_data
+from llm_profiler import infer_data_pattern
 import numpy as np
 
 # Define the state of our graph as a TypedDict
@@ -57,6 +58,19 @@ def profile_data_node(state: AgentState):
 
     print("--- DEBUG: 'profile_data_node' returning profile data")
     return {"profile": profile}
+
+def infer_patterns_node(state: AgentState):
+    """Node 4: Uses the LLM to infer data patterns for each column."""
+    print("--- DEBUG: Entering 'infer_patterns_node' ---")
+    profile = state['profile']
+    
+    inferred_profile = {}
+    for column, stats in profile.items():
+        inferred_pattern = infer_data_pattern(stats)
+        inferred_profile[column] = {**stats, **inferred_pattern}
+    
+    print("--- DEBUG: 'infer_patterns_node' returning inferred patterns")
+    return {"profile": inferred_profile}
 
 def finish_node(state: AgentState):
     """Final Node: Prints the results."""
@@ -108,11 +122,13 @@ if __name__ == "__main__":
     workflow.add_node("parse_layout", parse_layout_node)
     workflow.add_node("parse_data", parse_data_node)
     workflow.add_node("profile_data", profile_data_node)
+    workflow.add_node("infer_patterns", infer_patterns_node)
     workflow.add_node("finish", finish_node)
     workflow.add_edge(START, "parse_layout")
     workflow.add_edge("parse_layout", "parse_data")
     workflow.add_edge("parse_data", "profile_data")
-    workflow.add_edge("profile_data", "finish")
+    workflow.add_edge("profile_data", "infer_patterns")
+    workflow.add_edge("infer_patterns", "finish")
     workflow.add_edge("finish", END)
     app = workflow.compile()
     
