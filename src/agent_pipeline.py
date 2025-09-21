@@ -15,6 +15,7 @@ from layout_parser import parse_xls_layout
 from data_parser import parse_fixed_length_data
 from profiler_utilities import profile_data
 from llm_profiler import infer_data_pattern
+from database import init_db, save_profile
 import numpy as np
 
 # Define the state of our graph as a TypedDict
@@ -72,6 +73,15 @@ def infer_patterns_node(state: AgentState):
     print("--- DEBUG: 'infer_patterns_node' returning inferred patterns")
     return {"profile": inferred_profile}
 
+def persist_profile_node(state: AgentState):
+    """Node 5: Saves the final profile to the database."""
+    print("--- DEBUG: Entering 'persist_profile_node' ---")
+    layout_name = state['inputs'].get("layout_name")
+    profile = state['profile']
+    save_profile(layout_name, profile)
+    print("--- DEBUG: 'persist_profile_node' finished")
+    return {}
+
 def finish_node(state: AgentState):
     """Final Node: Prints the results."""
     print("--- DEBUG: Entering 'finish_node' ---")
@@ -123,18 +133,25 @@ if __name__ == "__main__":
     workflow.add_node("parse_data", parse_data_node)
     workflow.add_node("profile_data", profile_data_node)
     workflow.add_node("infer_patterns", infer_patterns_node)
+    workflow.add_node("persist_profile", persist_profile_node)
     workflow.add_node("finish", finish_node)
     workflow.add_edge(START, "parse_layout")
     workflow.add_edge("parse_layout", "parse_data")
     workflow.add_edge("parse_data", "profile_data")
     workflow.add_edge("profile_data", "infer_patterns")
-    workflow.add_edge("infer_patterns", "finish")
+    workflow.add_edge("infer_patterns", "persist_profile")
+    workflow.add_edge("persist_profile", "finish")
     workflow.add_edge("finish", END)
     app = workflow.compile()
+    
+    # Initialize the database and define a layout name
+    init_db()
+    layout_name_for_test = "test_mainframe_layout_v1"
     
     # 3. Run the graph with our dummy file paths and data
     inputs = {
         "inputs": {
+            "layout_name": layout_name_for_test,
             "layout_path": dummy_layout_filepath,
             "data_content": dummy_data_content
         }
