@@ -58,12 +58,27 @@ def generate_synthetic_data(profile: Dict[str, Any], volume: int) -> List[Dict[s
                 sequence_counters[col] = current_count
                 
             elif pattern == 'NUMBER':
-                # Generate a random number within the observed length range
-                min_len = stats.get('min_length', 1)
-                max_len = stats.get('max_length', 10)
-                length = random.randint(min_len, max_len)
-                new_record[col] = ''.join(random.choices(string.digits, k=length))
+                guidelines = stats.get('generation_guidelines', {})
+                number_type = guidelines.get('number_type', 'INTEGER')
+                min_value = guidelines.get('min_value', 0)
+                max_value = guidelines.get('max_value', 100)
                 
+                if number_type == 'DECIMAL':
+                    decimal_places = guidelines.get('decimal_places', 2)
+                    # Generate a random decimal number
+                    generated_value = random.uniform(min_value, max_value)
+                    new_record[col] = f"{generated_value:.{decimal_places}f}"
+                else: # Covers 'INTEGER' and 'STRING_OF_DIGITS'
+                    # Generate a random integer
+                    generated_value = random.randint(int(min_value), int(max_value))
+                    
+                    if number_type == 'STRING_OF_DIGITS':
+                        # Pad with leading zeros to match original length
+                        length = stats.get('max_length', len(str(generated_value)))
+                        new_record[col] = str(generated_value).zfill(length)
+                    else:
+                        new_record[col] = str(generated_value)
+
             elif pattern == 'DATE':
                 # Generate a random date (simplified for this example)
                 year = random.randint(2000, 2025)
@@ -83,21 +98,48 @@ def generate_synthetic_data(profile: Dict[str, Any], volume: int) -> List[Dict[s
     return generated_data
 
 if __name__ == '__main__':
-    # --- Dummy data and isolated testing ---
+    # --- Dummy data and isolated testing with rich NUMBER profile---
     print("--- Testing `data_generator.py` in isolation ---")
 
-    # A dummy profile that mimics the output of our agentic pipeline
+    # A dummy profile with a new 'generation_guidelines' for NUMBER columns
     dummy_profile = {
         'id': {'total_count': 5, 'unique_count': 5, 'cardinality': 1.0, 'min_length': 8, 'max_length': 8, 'column_name': 'id', 'pattern': 'SEQUENCE', 'reasoning': 'Sequential identifier.'},
         'product_code': {'total_count': 5, 'unique_count': 3, 'cardinality': 0.6, 'min_length': 10, 'max_length': 10, 'column_name': 'product_code', 'pattern': 'ENUM', 'value_counts': {'PROD-A0001': 3, 'PROD-B0002': 1, 'PROD-C0003': 1}},
         'product_type': {'total_count': 5, 'unique_count': 3, 'cardinality': 0.6, 'min_length': 9, 'max_length': 10, 'column_name': 'product_type', 'pattern': 'ENUM', 'value_counts': {'FURNITURE': 2, 'APPLIANCE': 2, 'ELECTRONIC': 1}},
-        'price': {'total_count': 5, 'unique_count': 5, 'cardinality': 1.0, 'min_length': 6, 'max_length': 7, 'column_name': 'price', 'pattern': 'NUMBER'},
+        'price': {
+            'total_count': 5, 'unique_count': 5, 'cardinality': 1.0, 'min_length': 6, 'max_length': 7, 
+            'column_name': 'price', 'pattern': 'NUMBER',
+            'generation_guidelines': {
+                'number_type': 'DECIMAL',
+                'min_value': 100.0,
+                'max_value': 10000.0,
+                'decimal_places': 2
+            }
+        },
         'currency': {'total_count': 5, 'unique_count': 2, 'cardinality': 0.4, 'min_length': 3, 'max_length': 3, 'column_name': 'currency', 'pattern': 'ENUM', 'value_counts': {'USD': 3, 'EUR': 2}},
         'status': {'total_count': 5, 'unique_count': 3, 'cardinality': 0.6, 'min_length': 8, 'max_length': 8, 'column_name': 'status', 'pattern': 'ENUM', 'value_counts': {'STATUS-A': 2, 'STATUS-B': 2, 'STATUS-C': 1}},
         'order_date': {'total_count': 5, 'unique_count': 1, 'cardinality': 0.2, 'min_length': 8, 'max_length': 8, 'column_name': 'order_date', 'pattern': 'DATE'},
         'customer_id': {'total_count': 5, 'unique_count': 5, 'cardinality': 1.0, 'min_length': 12, 'max_length': 12, 'column_name': 'customer_id', 'pattern': 'SEQUENCE'},
-        'zip_code': {'total_count': 5, 'unique_count': 3, 'cardinality': 0.6, 'min_length': 5, 'max_length': 5, 'column_name': 'zip_code', 'pattern': 'NUMBER'},
-        'quantity': {'total_count': 5, 'unique_count': 4, 'cardinality': 0.8, 'min_length': 4, 'max_length': 4, 'column_name': 'quantity', 'pattern': 'NUMBER'}
+        'zip_code': {
+            'total_count': 5, 'unique_count': 3, 'cardinality': 0.6, 'min_length': 5, 'max_length': 5,
+            'column_name': 'zip_code', 'pattern': 'NUMBER',
+            'generation_guidelines': {
+                'number_type': 'STRING_OF_DIGITS',
+                'min_value': 10000,
+                'max_value': 99999,
+                'decimal_places': 0
+            }
+        },
+        'quantity': {
+            'total_count': 5, 'unique_count': 4, 'cardinality': 0.8, 'min_length': 4, 'max_length': 4,
+            'column_name': 'quantity', 'pattern': 'NUMBER',
+            'generation_guidelines': {
+                'number_type': 'INTEGER',
+                'min_value': 1,
+                'max_value': 100,
+                'decimal_places': 0
+            }
+        }
     }
 
     # Generate a sample of 10 synthetic records

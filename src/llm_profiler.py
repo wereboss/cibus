@@ -46,6 +46,18 @@ def infer_data_pattern(column_name: str, column_profile: Dict[str, Any]) -> Dict
                 "pattern": "ENUM",
                 "reasoning": "The column has a very low cardinality with a few unique values and a clear value distribution."
             }
+        elif column_name.lower() in ["price", "quantity", "zip_code"]:
+            mock_response = {
+                "column_name": column_name,
+                "pattern": "NUMBER",
+                "reasoning": "The values are strictly numerical.",
+                "generation_guidelines": {
+                    "number_type": "DECIMAL" if column_name.lower() == "price" else "INTEGER",
+                    "min_value": 37.00 if column_name.lower() == "price" else 1,
+                    "max_value": 12036.50 if column_name.lower() == "price" else 1000,
+                    "decimal_places": 2 if column_name.lower() == "price" else 0
+                }
+            }
         else:
             mock_response = {
                 "column_name": column_name,
@@ -58,18 +70,30 @@ def infer_data_pattern(column_name: str, column_profile: Dict[str, Any]) -> Dict
         return mock_response
 
     # --- LLM Integration ---
-    # The system prompt instructs the LLM on its persona and role.
+    # The system prompt is updated to request more detail for 'NUMBER' patterns.
     system_prompt = """
-    You are an expert data analyst. Your task is to analyze a statistical profile of a data column and infer its underlying data pattern. Your response MUST be a single JSON object with three keys: "column_name", "pattern" and "reasoning".
+    You are an expert data analyst. Your task is to analyze a statistical profile of a data column and infer its underlying data pattern. Your response MUST be a single JSON object with three keys: "column_name", "pattern", and "reasoning".
     
     The "pattern" must be one of the following categories: "SEQUENCE" (e.g., progressive IDs), "ENUM" (limited, repeated choices), "RANDOM_STRING", "DATE", "NUMBER", "BOOLEAN", "UNSTRUCTURED_TEXT", or "UNCLASSIFIED".
     The "reasoning" should be a concise, single-sentence explanation for your choice.
     
-    Example output:
+    If the pattern is "NUMBER", you MUST also include a JSON object with the key "generation_guidelines". This object must contain:
+    - "number_type": one of "DECIMAL", "INTEGER", or "STRING_OF_DIGITS"
+    - "min_value": the minimum value observed.
+    - "max_value": the maximum value observed.
+    - "decimal_places": required for "DECIMAL" type, the number of digits after the decimal point.
+    
+    Example output for a NUMBER column:
     {
-      "column_name": "product_type",
-      "pattern": "ENUM",
-      "reasoning": "The column has a very low cardinality with a clear distribution of a few unique values."
+      "column_name": "price",
+      "pattern": "NUMBER",
+      "reasoning": "The values are all numeric and formatted as decimal numbers, consistent with price values.",
+      "generation_guidelines": {
+        "number_type": "DECIMAL",
+        "min_value": 1.00,
+        "max_value": 9999.99,
+        "decimal_places": 2
+      }
     }
     """
     
@@ -84,7 +108,6 @@ def infer_data_pattern(column_name: str, column_profile: Dict[str, Any]) -> Dict
         # Use the requested model
         model = genai.GenerativeModel('gemini-2.5-flash-preview-05-20')
         
-        # Correctly pass the system prompt within the contents list with a 'user' role.
         response = model.generate_content(
             contents=[
                 {"role": "user", "parts": [{"text": system_prompt}]},
@@ -136,14 +159,14 @@ if __name__ == '__main__':
         'max_length': 8
     }
 
-    # A dummy profile for a SEQUENCE-like column (e.g., 'price')
+    # A dummy profile for a DECIMAL-like NUMBER column (e.g., 'price')
     price_profile = {
         'total_count': 5,
         'unique_count': 5,
         'cardinality': 1.0,
-        'value_counts': {'1234.50': 1, '235.90': 1, '12036.50': 1, '37.00': 1, '1308.00': 1},
-        'min_length': 8,
-        'max_length': 8
+        'value_counts': {'120.00': 1, '2500.50': 1, '999.99': 1, '550.00': 1, '150.00': 1},
+        'min_length': 6,
+        'max_length': 7
     }
 
     # Test the function with the ENUM profile
@@ -156,7 +179,7 @@ if __name__ == '__main__':
     print("\nInferred Pattern for 'id':")
     print(inferred_pattern_seq)
 
-    # Test the function with the Float profile
-    inferred_pattern_seq = infer_data_pattern(column_name="price", column_profile=price_profile)
+    # Test the function with the NUMBER profile
+    inferred_pattern_num = infer_data_pattern(column_name="price", column_profile=price_profile)
     print("\nInferred Pattern for 'price':")
-    print(inferred_pattern_seq)
+    print(inferred_pattern_num)
