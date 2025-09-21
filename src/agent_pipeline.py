@@ -66,7 +66,7 @@ def infer_patterns_node(state: AgentState):
     
     inferred_profile = {}
     for column, stats in profile.items():
-        inferred_pattern = infer_data_pattern(stats)
+        inferred_pattern = infer_data_pattern(column, stats)
         inferred_profile[column] = {**stats, **inferred_pattern}
     
     print("--- DEBUG: 'infer_patterns_node' returning inferred patterns")
