@@ -3,3 +3,4 @@ langgraph
 google-generativeai
 pandas
 sqlalchemy
+python-dotenv

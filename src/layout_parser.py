@@ -8,7 +8,11 @@ agentic pipeline.
 
 import openpyxl
 import os
-from typing import List, Tuple
+import re
+from typing import List, Tuple, Union
+
+# Regex to find numeric value inside parentheses, e.g., X(10) or 9(12)
+COBOL_LENGTH_PATTERN = re.compile(r'\((.+)\)')
 
 def parse_xls_layout(filepath: str) -> List[Tuple[str, int]]:
     """
@@ -16,7 +20,7 @@ def parse_xls_layout(filepath: str) -> List[Tuple[str, int]]:
 
     The function assumes the following structure in the first worksheet:
     - Column 1 (A): Field Name
-    - Column 2 (B): Field Length
+    - Column 2 (B): Field Length (can be an integer or a string like "X(10)" or "9(12)")
 
     Args:
         filepath: The path to the XLS (or XLSX) layout file.
@@ -47,11 +51,31 @@ def parse_xls_layout(filepath: str) -> List[Tuple[str, int]]:
         field_name = row[0]
         field_length = row[1]
 
-        # Basic validation to ensure we have a name and a valid length
-        if field_name is not None and isinstance(field_length, (int, float)):
-            layout.append((str(field_name), int(field_length)))
+        if field_name is None:
+            continue
+
+        length_int: Union[int, None] = None
+        
+        # Check if the field length is a string with a COBOL-style pattern
+        if isinstance(field_length, str):
+            match = COBOL_LENGTH_PATTERN.search(field_length)
+            if match:
+                try:
+                    length_int = int(match.group(1))
+                except ValueError:
+                    print(f"Warning: Could not parse length from '{field_length}'. Skipping row.")
+                    continue
+            else:
+                print(f"Warning: Invalid string format for length '{field_length}'. Skipping row.")
+                continue
+        elif isinstance(field_length, (int, float)):
+            length_int = int(field_length)
         else:
-            print(f"Skipping invalid row in layout file: {row}")
+            print(f"Skipping row with invalid length type: {field_length}")
+            continue
+
+        if length_int is not None:
+            layout.append((str(field_name), length_int))
 
     return layout
 
@@ -59,19 +83,19 @@ if __name__ == '__main__':
     # --- Dummy data and file for isolated testing ---
     print("--- Testing `layout_parser.py` in isolation ---")
     
-    # Dummy layout data: name, length
+    # Dummy layout data with COBOL formats
     dummy_layout_data = [
         ["Field Name", "Field Length"],
-        ["id", 8],
-        ["product_code", 10],
-        ["product_type", 15],
-        ["price", 7],
-        ["currency", 3],
-        ["status", 10],
-        ["order_date", 8],
-        ["customer_id", 12],
-        ["zip_code", 5],
-        ["quantity", 4]
+        ["id", "9(8)"],
+        ["product_code", "X(10)"],
+        ["product_type", "X(15)"],
+        ["price", "9(7)"],
+        ["currency", "X(3)"],
+        ["status", "X(10)"],
+        ["order_date", "9(8)"],
+        ["customer_id", "X(12)"],
+        ["zip_code", "9(5)"],
+        ["quantity", "9(4)"]
     ]
 
     # Create a dummy XLS file for testing
@@ -93,7 +117,10 @@ if __name__ == '__main__':
             print(item)
             
         # Example of accessing the first parsed item
-        print(f"\nExample: First field name is: {parsed_output[0][0]}, with length: {parsed_output[0][1]}")
+        if parsed_output:
+            print(f"\nExample: First field name is: {parsed_output[0][0]}, with length: {parsed_output[0][1]}")
+        else:
+            print("\nNo layout parsed.")
 
     finally:
         # Clean up the dummy file

@@ -95,24 +95,24 @@ if __name__ == "__main__":
     print("--- Starting Full Integrated Test ---")
     
     # 1. Create dummy files to simulate inputs
-    # Dummy layout for a 10-column file
-    sample_layout = [
-        ("id", 8),
-        ("product_code", 10),
-        ("product_type", 15),
-        ("price", 7),
-        ("currency", 3),
-        ("status", 10),
-        ("order_date", 8),
-        ("customer_id", 12),
-        ("zip_code", 5),
-        ("quantity", 4)
+    # Dummy layout for a 10-column file, now with COBOL formats
+    sample_layout_cobol = [
+        ("id", "9(8)"),
+        ("product_code", "X(10)"),
+        ("product_type", "X(15)"),
+        ("price", "9(7)"),
+        ("currency", "X(3)"),
+        ("status", "X(10)"),
+        ("order_date", "9(8)"),
+        ("customer_id", "X(12)"),
+        ("zip_code", "9(5)"),
+        ("quantity", "9(4)")
     ]
     dummy_layout_filepath = "dummy_layout.xlsx"
     workbook = openpyxl.Workbook()
     sheet = workbook.active
     sheet.append(["Field Name", "Field Length"])
-    for name, length in sample_layout:
+    for name, length in sample_layout_cobol:
         sheet.append([name, length])
     workbook.save(dummy_layout_filepath)
 
